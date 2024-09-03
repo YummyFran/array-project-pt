@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Array</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <canvas id="canvas" title="Note: The elements you create are draggable and selectable"></canvas>
+    <form class="tools">
+        <h4 id="toolHeader">Configure Element</h4>
+        <input type="text" placeholder="Element value" id="name" autocomplete="off" title="Value of an element in an array" required>
+        <input type="color" value="#ffffff" id="color" title="Specify element color">
+        <button type="submit" class="submit" id="toolBtn" title="Click to push the element to the Array">Add Element</button>
+        <button id="deleteBtn" title="Click to delete selected element from the array">Delete</button>
+    </form>
+
+    <script src="script.js"></script>
+</body>
+</html>
