@@ -20,6 +20,7 @@ let lastPoint = {
 
 let nodes = []
 let selectedNode = []
+let clipboard = []
 let shiftPressed = false
 
 class _Node {
@@ -166,6 +167,18 @@ function selectAll() {
     updateTools()
 }
 
+function copyNode() {
+    clipboard = [...selectedNode]
+}
+
+function pasteNode() {
+    clipboard.forEach(node => {
+        const newNode = new _Node(node.name, node.color)
+
+        nodes.push(newNode)
+    })
+}
+
 function updateTools() {
     if(selectedNode.length > 0) {
         toolHeader.innerText = "Edit Element"
@@ -265,9 +278,6 @@ function handleClick(e) {
         }
     })
 
-    console.log(selectedNode)
-
-
     updateTools()
 }
 
@@ -313,6 +323,16 @@ function handleKeyDown(e) {
         const save = confirm("Save your progress to png?")
 
         if(save) saveCanvas()
+    }
+
+    if(e.ctrlKey && e.key === 'c' && document.activeElement !== nameInput) {
+        e.preventDefault()
+        copyNode()
+    }
+
+    if(e.ctrlKey && e.key === 'v' && document.activeElement !== nameInput) {
+        e.preventDefault()
+        pasteNode()
     }
 
     if(e.key === 'Backspace' && document.activeElement !== nameInput) {
