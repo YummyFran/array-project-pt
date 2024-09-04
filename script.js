@@ -19,7 +19,8 @@ let lastPoint = {
 }
 
 let nodes = []
-let selectedNode = null;
+let selectedNode = []
+let shiftPressed = false
 
 class _Node {
     constructor(name, color) {
@@ -112,11 +113,12 @@ class _Node {
 
     select() {
         this.isSelected = true
-        selectedNode = this
+        selectedNode.push(this)
     }
 
     unselect() {
         this.isSelected = false
+        selectedNode.slice(selectedNode.indexOf(this), 1)
     }
 
     isInsideRect(x, y) {
@@ -131,17 +133,44 @@ function addNode(name, color) {
 }
 
 function editNode(name, color) {
-    selectedNode.name = name
-    selectedNode.color = color
-    selectedNode.isColorDark()
-    selectedNode.calculateWidth()
+    selectedNode.forEach(node => {
+        node.name = name
+        node.color = color
+        node.isColorDark()
+        node.calculateWidth()
+    })
+}
+
+function duplicateNode() {
+    const newNode = new _Node(selectedNode[selectedNode.length - 1].name, selectedNode[selectedNode.length - 1].color)
+    
+    newNode.x = selectedNode[selectedNode.length - 1].x + selectedNode[selectedNode.length - 1].width / 2
+    newNode.y = selectedNode[selectedNode.length - 1].y + selectedNode[selectedNode.length - 1].height / 2
+
+    selectedNode[selectedNode.length - 1].unselect()
+    newNode.select()
+
+    nodes.push(newNode)
+}
+
+function saveCanvas() {
+    const a = document.createElement('a')
+
+    a.href = canvas.toDataURL('image/png')
+    a.download = "ArrayElements.png"
+    a.click()
+}
+
+function selectAll() {
+    nodes.forEach(node => node.select())
+    updateTools()
 }
 
 function updateTools() {
-    if(selectedNode != null) {
+    if(selectedNode.length > 0) {
         toolHeader.innerText = "Edit Element"
-        nameInput.value = selectedNode.name
-        colorInput.value = selectedNode.color
+        nameInput.value = selectedNode[selectedNode.length - 1].name
+        colorInput.value = selectedNode[selectedNode.length - 1].color
         toolBtn.innerText = "Edit Element"
         deleteBtn.style.display = "block"   
     } else {
@@ -194,6 +223,7 @@ function handleMouseMove(e) {
     const mouseX = e.clientX - canvas.getBoundingClientRect().left
     const mouseY = e.clientY - canvas.getBoundingClientRect().top
     
+    let rect = null
     nodes.forEach(node => {
         if (node.isDragging) {
             node.x = mouseX - node.offsetX
@@ -201,11 +231,15 @@ function handleMouseMove(e) {
         } 
 
         if(node.isInsideRect(mouseX, mouseY)) {
-            document.body.style.cursor = node.isDragging ? 'grabbing' : 'grab'
-        } else {
-            document.body.style.cursor = 'default'
+            rect = node
         }
     })
+
+    if(rect != null) {
+        canvas.style.cursor = rect.isDragging ? 'grabbing' : 'grab'
+    } else {
+        canvas.style.cursor = 'default'
+    }
 }
 
 function handleClick(e) {
@@ -221,11 +255,18 @@ function handleClick(e) {
         }
     }
 
-    selectedNode = null
-
+    if(!shiftPressed) selectedNode.length = 0
+    
     nodes.forEach(node => {
-        node === topMostNode ? node.select() : node.unselect()
+        if(node === topMostNode && !node.isSelected) { 
+            node.select() 
+        } else if(node.isSelected && !shiftPressed){
+            node.unselect()
+        }
     })
+
+    console.log(selectedNode)
+
 
     updateTools()
 }
@@ -233,10 +274,14 @@ function handleClick(e) {
 function handleDelete(e) {
     e.preventDefault()
 
-    nodes.splice(nodes.indexOf(selectedNode), 1)
+    if(selectedNode.length == 0) return
+
+    selectedNode.forEach(node => {
+        nodes.splice(nodes.indexOf(node), 1)
+    })
     
     tools.reset()
-    selectedNode = null
+    selectedNode.length = 0
     updateTools()
 }
 
@@ -248,13 +293,47 @@ function handleSubmit(e) {
         return
     }
 
-    if(selectedNode != null) {
+    if(selectedNode.length > 0) {
         editNode(nameInput.value, colorInput.value)
         return
     }
 
     addNode(nameInput.value.trim(), colorInput.value)
     tools.reset()
+}
+
+function handleKeyDown(e) {
+    if (e.ctrlKey && e.key === 'd') {
+        e.preventDefault()
+        duplicateNode()
+    }
+
+    if(e.ctrlKey && e.key === 's') {
+        e.preventDefault()
+        const save = confirm("Save your progress to png?")
+
+        if(save) saveCanvas()
+    }
+
+    if(e.key === 'Backspace' && document.activeElement !== nameInput) {
+        handleDelete(e)
+        canvas.style.cursor = 'default'
+    }
+
+    if(e.ctrlKey && e.key === 'a' && document.activeElement !== nameInput) {
+        e.preventDefault()
+        selectAll()
+    }
+
+    if(e.shiftKey) {
+        shiftPressed = true
+    }
+}
+
+function handleKeyUp(e) {
+    if(!e.shiftKey) {
+        shiftPressed = false
+    }
 }
 
 canvas.addEventListener('mousedown', handleMouseDown)
@@ -268,6 +347,9 @@ canvas.addEventListener('touchmove', handleMouseMove)
 canvas.addEventListener('click', handleClick)
 deleteBtn.addEventListener('click', handleDelete)
 tools.addEventListener("submit", handleSubmit)
+
+document.addEventListener('keydown', handleKeyDown)
+document.addEventListener('keyup', handleKeyUp)
 
 window.addEventListener('resize', () => {
     canvas.width = window.innerWidth
