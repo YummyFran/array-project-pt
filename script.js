@@ -14,35 +14,76 @@ canvas.width = window.innerWidth
 canvas.height = window.innerHeight
 
 let lastPoint = {
-    x: canvas.width / 3,
-    y: canvas.height / 3
+    x: canvas.width * 0.05,
+    y: 100
 }
 
 let nodes = []
 let selectedNode = null;
 
 class _Node {
-    constructor(name, color, size = 10) {
+    constructor(name, color) {
         this.name = name
         this.color = color
-        this.size = size
+        this.fontSize = 14
+
+        this.padding = this.fontSize * 2
+        this.width = 0
+        this.height = this.fontSize + this.padding * 0.8
         this.isSelected = false
+
+        this.calculateWidth()
 
         const points = this.getPoints()
         this.x = points.x
         this.y = points.y
 
-        this.isDragging = false;
+        this.isDark = false
+        this.isDragging = false
         this.offsetX = 0;
         this.offsetY = 0;
+
+        this.isColorDark()
+    }
+
+    isColorDark() {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(this.color);
+        const rgb =  result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null
+
+        const r = rgb.r / 255;
+        const g = rgb.g / 255;
+        const b = rgb.b / 255;
+    
+        const linearR = r <= 0.03928 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4);
+        const linearG = g <= 0.03928 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4);
+        const linearB = b <= 0.03928 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4);
+    
+        const luminance = 0.2126 * linearR + 0.7152 * linearG + 0.0722 * linearB;
+    
+        this.isDark = luminance < 0.5
+    }
+
+    calculateWidth() {
+        const charWidth = this.fontSize * 0.6
+
+        this.width = (this.name.length * charWidth) + this.padding
     }
 
     getPoints() {
-        let x = lastPoint.x + (this.size * 4)
-        let y = nodes.length % 2 == 1 ? lastPoint.y - (this.size * 8): lastPoint.y + (this.size * 8)
+        let x = lastPoint.x
+        let y = lastPoint.y
 
-        lastPoint.x = x
+        lastPoint.x = x + this.width + 10
         lastPoint.y = y
+
+        if(lastPoint.x > canvas.width - (canvas.width * 0.2)) {
+            lastPoint.x = canvas.width * 0.05
+            lastPoint.y += this.height + 8
+        }
 
         return {x, y}
     }
@@ -51,27 +92,26 @@ class _Node {
         ctx.fillStyle = this.color
 
         ctx.beginPath()
-        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false)
+        ctx.roundRect(this.x, this.y, this.width, this.height, this.fontSize / 2)
         ctx.fill()
 
-        ctx.fillStyle = "white"
-        ctx.font = "14px Arial"
+        ctx.fillStyle = this.isDark ? "#FFFFFF" : "#000000"
+        ctx.font = `${this.fontSize}px monospace`
         ctx.textAlign = "center"
-        ctx.fillText(this.name, this.x, this.y - (this.size * 2))
+        ctx.textBaseline = "middle"
+        ctx.fillText(this.name, this.x + this.width / 2, this.y + this.height / 2)
 
         if(this.isSelected) {
             ctx.strokeStyle = 'white'
             ctx.lineWidth = 2
             ctx.beginPath()
-            ctx.arc(this.x, this.y, this.size + 2, 0, Math.PI * 2, false)
+            ctx.roundRect(this.x - 2, this.y - 2, this.width + 4, this.height + 4, (this.fontSize / 2) + 2)
             ctx.stroke()
         }
     }
 
     select() {
         this.isSelected = true
-        lastPoint.x = this.x
-        lastPoint.y = this.y
         selectedNode = this
     }
 
@@ -80,7 +120,7 @@ class _Node {
     }
 
     isInsideRect(x, y) {
-        return (x > this.x - this.size && x < this.x + this.size && y > this.y - this.size && y < this.y + this.size);
+        return x > this.x && x < this.x + this.width && y > this.y && y < this.y + this.height
     }
 }
 
@@ -93,6 +133,8 @@ function addNode(name, color) {
 function editNode(name, color) {
     selectedNode.name = name
     selectedNode.color = color
+    selectedNode.isColorDark()
+    selectedNode.calculateWidth()
 }
 
 function updateTools() {
@@ -157,6 +199,12 @@ function handleMouseMove(e) {
             node.x = mouseX - node.offsetX
             node.y = mouseY - node.offsetY
         } 
+
+        if(node.isInsideRect(mouseX, mouseY)) {
+            document.body.style.cursor = node.isDragging ? 'grabbing' : 'grab'
+        } else {
+            document.body.style.cursor = 'default'
+        }
     })
 }
 
@@ -195,12 +243,18 @@ function handleDelete(e) {
 function handleSubmit(e) {
     e.preventDefault()
 
-    if(selectedNode == null) {
-        addNode(nameInput.value, colorInput.value)
+    if(nameInput.value.trim() == '') {
         tools.reset()
-    } else {
-        editNode(nameInput.value, colorInput.value)
+        return
     }
+
+    if(selectedNode != null) {
+        editNode(nameInput.value, colorInput.value)
+        return
+    }
+
+    addNode(nameInput.value.trim(), colorInput.value)
+    tools.reset()
 }
 
 canvas.addEventListener('mousedown', handleMouseDown)
